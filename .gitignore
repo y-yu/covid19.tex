@@ -28,4 +28,5 @@ erl_crash.dump
 *.fls
 data.csv
 covid19.tex
+covid19-*.png
 
