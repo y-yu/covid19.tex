@@ -12,9 +12,9 @@ if [[ "${TRAVIS_OS_NAME}" == "linux" && "${TRAVIS_BRANCH}" == "master" && "${TRA
   git fetch origin gh-pages:gh-pages
   git stash -a
   git checkout gh-pages
-  rm covid19.pdf
+  rm covid19.pdf covid19-0.png covid19-1.png
   git stash pop
-  git add covid19.pdf
+  git add covid19.pdf covid19-0.png covid19-1.png
   git commit -a -m "auto commit on travis $TRAVIS_JOB_NUMBER $TRAVIS_COMMIT"
   git push git@github.com:y-yu/covid19.tex.git gh-pages:gh-pages
 fi
