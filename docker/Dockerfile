@@ -54,4 +54,4 @@ VOLUME ["/workdir"]
 
 WORKDIR /workdir
 
-ENTRYPOINT ["/bin/bash", "-c", "lualatex -shell-escape covid19.tex && convert -density 300 covid19.pdf covid19-%d.png"]
+ENTRYPOINT ["/bin/bash", "-c", "lualatex -shell-escape covid19.tex && convert -density 300 -background white -alpha background -alpha off covid19.pdf covid19-%d.png"]
