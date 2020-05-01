@@ -6,6 +6,9 @@ Trajectory of COVID-19 confirmed cases in Tokyo
 Automatic building for https://gist.github.com/wtsnjp/42a3379ddb496b3eeaa46c6de75e2e8b
 
 
-## Artifact
+## Artifact (daily update)
 
-- https://y-yu.github.io/covid19.tex/covid19.pdf (daily update)
+- https://y-yu.github.io/covid19.tex/covid19.pdf
+- https://y-yu.github.io/covid19.tex/covid19-0.png
+- https://y-yu.github.io/covid19.tex/covid19-1.png
+
