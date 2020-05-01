@@ -27,4 +27,5 @@ erl_crash.dump
 *.fdb_latexmk
 *.fls
 data.csv
+covid19.tex
 
