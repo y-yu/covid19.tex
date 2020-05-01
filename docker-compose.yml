@@ -1,0 +1,11 @@
+version: '3.2'
+services:
+  covid19-compile:
+    image: yyupw/covid19:latest
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+      cache_from:
+        - yyupw/covid19:latest
+    volumes:
+      - .:/workdir

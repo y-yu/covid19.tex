@@ -1,0 +1,261 @@
+% +++
+% clean_files = ["%B.aux", "%B.log", "data.csv"]
+% clobber_files = ["%B.pdf", "%B.png", "%B-2.png"]
+% sequence = ["tex2img"]
+%
+% [programs.tex2img]
+% command = "tex2img"
+% opts = [
+%   '--latex "lualatex -shell-escape"',
+%   "--no-transparent",
+%   "--keep-page-size",
+% ]
+% args = ["%T", "%B.png"]
+%
+% [programs.latex]
+% command = "lualatex"
+% opts = ["-shell-escape"]
+% +++
+\documentclass[12pt,border=4mm]{standalone}
+
+% dependecies
+\usepackage{luacode}
+\usepackage{download}
+\usepackage{pgfplots}
+\usepackage{datetime2}
+
+% data file
+\def\DataFile{./data.csv}
+
+% download data: always fetch a new one
+\begin{luacode}
+do
+  data_file = '\DataFile'
+  if lfs.isfile(data_file) then
+    local ok = os.remove(data_file)
+    if not ok then
+      io.stderr:write('Warning: failed to delete an existing data.')
+    end
+  end
+end
+\end{luacode}
+
+\download[\DataFile]{%
+  https://stopcovid19.metro.tokyo.lg.jp/data/130001_tokyo_covid19_patients.csv}
+
+% the main logic
+\begin{luacode*}
+function string.split(str, delim)
+  if str:find(delim) == nil then return {str} end
+
+  local res = {}
+  local pat = '(.-)' .. delim .. '()'
+  local last
+
+  for part, pos in string.gmatch(str, pat) do
+    table.insert(res, part)
+    last = pos
+  end
+  table.insert(res, string.sub(str, last))
+
+  return res
+end
+
+function table.map(tab, f)
+  for k, v in ipairs(tab) do
+    tab[k] = f(v)
+  end
+end
+
+function main()
+  -- load the data
+  local f = io.open(data_file, 'r')
+
+  local first_date, last_date
+  local nof_patients = {}
+  local cnt, cur
+
+  for l in f:lines() do
+    local field_date = string.split(l, ',')[5]
+    local date = string.split(field_date, '-')
+    if #date == 3 then
+      local tmp = string.format('%02d/%02d', date[2], date[3])
+      if cur == nil then -- first date
+        first_date = date
+        cur = tmp
+        cnt = 1
+      elseif cur == tmp then -- day continued
+        cnt = cnt + 1
+      else -- day changed
+        nof_patients[cur] = cnt
+        cur = tmp
+        cnt = 1
+      end
+      last_date = date
+    end
+  end
+  nof_patients[cur] = cnt
+  f:close()
+
+  -- make the date list
+  local date_list = {}
+  do
+    table.map(first_date, tonumber)
+    table.map(last_date, tonumber)
+    local days_of_month = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+
+    local function add_date(m, d)
+      table.insert(date_list, string.format('%02d/%02d', m, d))
+    end
+
+    local nof_days
+    for m=first_date[2],last_date[2] do
+      nof_days = days_of_month[m]
+      if m == first_date[2] then
+        for d=first_date[3],nof_days do
+          add_date(m, d)
+        end
+      elseif m == last_date[2] then
+        for d=1,last_date[3] do
+          add_date(m, d)
+        end
+      else
+        for d=1,nof_days do
+          add_date(m, d)
+        end
+      end
+    end
+  end
+
+  -- build the data
+  local data = {}
+  for i, date in ipairs(date_list) do
+    local num = nof_patients[date]
+    if num ~= nil then
+      data[i] = {date, num}
+    else
+      data[i] = {date, nil}
+    end
+  end
+
+  return data
+end
+
+function print_period(data)
+  tex.sprint(string.format('%s--%s', data[1][1], data[#data][1]))
+end
+
+function print_coords(data)
+  for _, tp in ipairs(data) do
+    tex.sprint(tp[1] .. ',')
+  end
+end
+
+function print_accumulation(data)
+  local acc = 0
+  for _, tp in ipairs(data) do
+    if type(tp[2]) == 'number' then
+      acc = acc + tp[2]
+      tex.sprint(string.format('(%s, %d)', tp[1], acc))
+    end
+  end
+end
+
+function print_double_in(x, start, data)
+  tex.sprint(string.format('(%s, %d)', start, 1))
+
+  local nof_days = 0
+  for i, tp in ipairs(data) do
+    if tp[1] == start then
+      nof_days = #data - i
+      break
+    end
+  end
+
+  tex.sprint(string.format('(%s, %f)', data[#data][1],
+                                       2 ^ (nof_days / x)))
+end
+
+function print_trajectory(data)
+  local total = 0
+  local new = 0
+
+  for i, tp in ipairs(data) do
+    if i - 8 > 0 then
+      local d = data[i - 8][2] or 0
+      new = new - d
+    end
+
+    if type(tp[2]) == 'number' then
+      total = total + tp[2]
+      new = new + tp[2]
+      tex.sprint(string.format('(%d, %d)', total, new))
+    end
+  end
+end
+
+data = main()
+\end{luacode*}
+
+% setup standalone and pgfplots
+\standaloneenv{tikzpicture}
+\pgfplotsset{compat=1.16}
+
+%<*> \DoubleIn {<x>} {<start date>}
+\newcommand{\DoubleIn}[2]{
+  \addplot+ [no markers] coordinates {
+    \directlua{print_double_in(#1, '#2', data)}
+  };
+  \addlegendentry{Double in #1 days};
+}
+
+\begin{document}
+
+\begin{tikzpicture}
+\begin{semilogyaxis}[
+  title={%
+    Number of COVID-19 patients in Tokyo
+    (\directlua{print_period(data)})%
+  },
+  xlabel={Date},
+  ylabel={\#Patients},
+  enlarge x limits=0,
+  height=100mm,
+  ymin=1,
+  xticklabel style={rotate=90},
+  symbolic x coords/.expand once={%
+    \directlua{print_coords(data)}
+  },
+  grid=both,
+  major grid style={black!50},
+  legend pos=north west,
+  axis lines*=left]
+\addplot coordinates {
+  \directlua{print_accumulation(data)}
+};
+\addlegendentry{Data};
+\DoubleIn{5}{02/15}
+\end{semilogyaxis}
+\end{tikzpicture}
+
+\begin{tikzpicture}
+\begin{loglogaxis}[
+  title={%
+    Trajectory of COVID-19 confirmed cases in Tokyo
+    (\directlua{print_period(data)})%
+  },
+  xlabel={Total confirmed cases},
+  ylabel={New confirmed cases (in a week)},
+  enlarge x limits=0,
+  height=100mm,
+  ymin=1,
+  grid=both,
+  major grid style={black!50},
+  axis lines*=left]
+\addplot+ [no markers] coordinates {
+  \directlua{print_trajectory(data)}
+};
+\end{loglogaxis}
+\end{tikzpicture}
+
+\end{document}
