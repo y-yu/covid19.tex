@@ -15,6 +15,7 @@ ENV PERSISTENT_DEPS \
     perl \
     ghostscript \
     bash \
+    imagemagick \
     git
 
 ENV PATH $TEXLIVE_PATH/bin/x86_64-linuxmusl:$PATH
@@ -53,4 +54,4 @@ VOLUME ["/workdir"]
 
 WORKDIR /workdir
 
-ENTRYPOINT ["/bin/bash", "-c", "lualatex -shell-escape covid19.tex"]
+ENTRYPOINT ["/bin/bash", "-c", "lualatex -shell-escape covid19.tex && convert -density 300 covid19.pdf covid19-%d.png"]
